@@ -1,25 +1,43 @@
-# Local AI Chat · Ollama
+# Astra Air · Local AI Travel Assistant
 
-A local, streaming chatbot built with **Gradio** and **Ollama**. It uses
-`qwen3.5:9b` with thinking disabled for direct chat responses, rather than
-the slower reasoning-focused `deepseek-r1:7b` model. The model runs on the
-computer hosting the app; nothing is sent to an external inference API,
-and browser visitors do not download model weights.
+An **agentic airline support demo** built with Gradio and your locally installed
+`qwen3.5:9b` model in [Ollama](https://ollama.com/). The assistant chooses
+read-only tools to answer questions about a **fictional** airline's SQLite in-memory
+flights, reservation, flight status, and baggage rules. Tool results appear as
+collapsible steps in a polished dark-mode UI.
 
-## Demo
+> **Demo data only.** Astra Air, its flight schedule, passenger, and reservation
+> are fictional. No real inventory, live tracking, bookings, payments, or
+> external inference services are involved.
 
-[![Watch the 24-second chatbot demo](assets/demo-poster.png)](demo.mp4)
+## Demo video
 
-[Watch the 24-second demo video (MP4)](demo.mp4) · Two typed prompts show
-streaming replies and a follow-up rewrite. The recording includes only the
-chatbot browser viewport; no desktop or terminal is shown.
+[![Watch the chatbot demo](assets/demo-poster.png)](demo.mp4)
 
-## Quick start
+[Watch the 73-second MP4 recording](demo.mp4) — the recorded browser viewport
+shows two multi-tool questions, the underlying tool results, and a declined
+cancellation. The footage is sped up 1.4× to reduce model-wait time; it is
+not a latency benchmark. The video is about 1 MB and is committed to Git.
 
-1. Install [Ollama](https://ollama.com/) and start its desktop app (or run
-   `ollama serve`). Check for the model with `ollama list`; if needed, run
-   `ollama pull qwen3.5:9b` once.
-2. Use Python 3.11 or 3.12:
+## What it demonstrates
+
+- **Tool-calling loop:** Qwen decides which of four allowlisted tools to call,
+  can use a tool result to decide on another, and receives a maximum of two
+  tool-selection rounds before answering. The UI shows each actual tool result.
+- **Grounded example data:** searches use parameterized SQL against an
+  in-memory SQLite database with writes disabled. Missing records return
+  explicit errors.
+- **Local inference:** Ollama runs on your machine, with thinking turned off.
+  The model weights are never downloaded by browser visitors.
+- **Usability:** streaming answers, example prompts, dark styling, explanatory
+  sample-data panel, and helpful connection errors.
+
+## Try it
+
+1. Install [Ollama](https://ollama.com/) and start it (`ollama serve` or the
+   desktop app). Run `ollama list`; if needed, install the model once with
+   `ollama pull qwen3.5:9b` (~6.6 GB on the development machine).
+2. With Python 3.11 or 3.12:
 
    ```bash
    python3.11 -m venv .venv
@@ -28,31 +46,34 @@ chatbot browser viewport; no desktop or terminal is shown.
    python app.py
    ```
 
-Open http://127.0.0.1:7860 if your browser doesn't open automatically.
-The first response can take longer while Ollama loads the model into memory.
-On the development machine, one short cold-start prompt took about **8 seconds**,
-including about **6 seconds** of model loading; that is a single observation,
-not a general performance benchmark. Press **Ctrl+C** to stop the app.
+Open http://127.0.0.1:7860. Only the local computer can access the Gradio UI.
+Press **Ctrl+C** to stop it.
 
-## How it works
+Try these sample questions (the fixtures are dated **December 5–6, 2026**):
 
-`app.py` contains the Gradio UI. `ollama_chat.py` builds a bounded, text-only
-conversation and streams responses from Ollama's local `/api/chat` endpoint.
-It sets `think: false`, limits context to 4,096 tokens and output to 350
-tokens, and reports common connection/model errors in the chat. The UI binds
-only to `127.0.0.1`, so it isn't publicly accessible. No API key is needed.
+1. `Find SFO to JFK flights on December 5, 2026.`
+2. `Look up demo booking AX7K2Q and check the status of its flight.`
+3. `What is the Economy baggage policy?`
+4. `Find SFO to JFK flights on Dec 5 and tell me the Economy baggage policy.`
 
-The app keeps the latest 12 history messages and caps each message at 4,000
-characters. Browser chat history is saved locally by Gradio. This is a
-single-user demo, not an authenticated or production-ready service. Answers
-can be incorrect; the app has no browsing, retrieval, or external tools.
+The last two combined questions demonstrate multi-tool reasoning. Model
+responses are nondeterministic; inspect the collapsible tool steps for the
+deterministic data behind each answer.
 
-## Tests and checks
+## Project layout
 
-Unit tests mock Ollama's HTTP responses—**Ollama and model weights are not
-needed** to run them. They cover history filtering and size limits, request
-settings, cumulative streaming, empty/malformed responses, connection errors,
-and missing models.
+| File | Purpose |
+| --- | --- |
+| `app.py` | Gradio interface, dark theme, and visible tool activity |
+| `ollama_chat.py` | Bounded agent loop and Ollama streaming protocol |
+| `airline_data.py` | SQLite `:memory:` fixture database, four tools, and read-only dispatch |
+| `tests/` | Mocked agent, tool, and UI adapter tests |
+
+Messages are clipped to 4,000 characters and the last 12 history messages
+are considered. Tool-display rows are excluded from the model's subsequent
+conversation context. Calls to Ollama stay on `127.0.0.1`.
+
+## Quality checks
 
 ```bash
 python -m pip install -r requirements-dev.txt
@@ -61,13 +82,14 @@ ruff check .
 ruff format --check .
 ```
 
-GitHub Actions runs these checks on Python 3.11 and 3.12, and verifies the
-Gradio UI imports. For a live check, run the app and try one of its example
-prompts. CI does not judge model answer quality or benchmark speed.
+GitHub Actions runs the tests and lint checks on Python 3.11 and 3.12 without
+needing Ollama or the model. Live response quality and model latency are not
+covered by these unit tests.
 
-## Recording the demo
+## Scope and limitations
 
-Start Ollama and the app before recording, then send a short warm-up message
-so the model is loaded. Show a follow-up question to demonstrate conversation
-history and the streamed response. Keep the terminal out of frame if it
-contains personal paths or information.
+This is a **local, single-user portfolio demo**, not an airline service.
+SQLite records live only in process memory and do not represent real travel data. The
+assistant may still make mistakes or ignore instructions; tool output is the
+source of truth for fixture facts. Booking changes and payments are deliberately
+out of scope and cannot be performed by any tool.
